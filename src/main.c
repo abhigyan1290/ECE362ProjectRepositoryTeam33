@@ -1,49 +1,58 @@
+#include <stdio.h>
 #include "pico/stdlib.h"
-//Board specific
-#define LED_R 37
-#define LED_G 38
-#define LED_B 39
+#include "keypad_mapped.h"
 
-#define LED_ON(pin)  gpio_put(pin, 0)
-#define LED_OFF(pin) gpio_put(pin, 1)
 
-int main(void) {
+int main() {
     stdio_init_all();
+    
+    // Initialize Keypad System
+    q_init();
+    keypad_init_pins();
+    keypad_init_timer();
 
-    gpio_init(LED_R); 
-    gpio_set_dir(LED_R, GPIO_OUT);
-    gpio_init(LED_G); 
-    gpio_set_dir(LED_G, GPIO_OUT);
-    gpio_init(LED_B); 
-    gpio_set_dir(LED_B, GPIO_OUT);
-
-    LED_OFF(LED_R); 
-    LED_OFF(LED_G); 
-    LED_OFF(LED_B);
+    printf("\n========================================\n");
+    printf("BOOLEAN EXPRESSION BUILDER READY\n");
+    printf("Key 1=A, 2=B, 3=C\n");
+    printf("Key 8=AND, 0=OR, 4=NOT, 5=XOR\n");
+    printf("Key #=ENTER, D=BACKSPACE\n");
+    printf("========================================\n\n> ");
 
     while (true) {
-        // Red
-        LED_ON(LED_R); 
-        LED_OFF(LED_G); 
-        LED_OFF(LED_B);
-        sleep_ms(4000);
+        uint16_t event;
+        
+        // Check if we have data in the queue
+        if (key_pop(&event)) {
+            
+            // Decode the event
+            // Upper byte determines press (1) or release (0)
+            bool is_pressed = (event >> 8) & 0xFF;
+            char raw_char = (char)(event & 0xFF);
 
-        // Green
-        LED_OFF(LED_R); 
-        LED_ON(LED_G); 
-        LED_OFF(LED_B);
-        sleep_ms(4000);
-
-        // Blue
-        LED_OFF(LED_R); 
-        LED_OFF(LED_G); 
-        LED_ON(LED_B);
-        sleep_ms(4000);
-
-        // All OFF 
-        LED_OFF(LED_R); 
-        LED_OFF(LED_G); 
-        LED_OFF(LED_B);
-        sleep_ms(3000);
+            // We only act on PRESS, ignore RELEASE
+            if (is_pressed) {
+                const char* boolean_str = get_boolean_token(raw_char);
+                
+                if (boolean_str != NULL) {
+                    // Handle Backspace logic visually
+                    if (boolean_str[0] == '\b') {
+                        printf("\b \b"); // Move back, print space, move back
+                    } 
+                    // Handle Enter logic
+                    else if (boolean_str[0] == '\n') {
+                        printf("\n> "); 
+                    }
+                    // Handle standard tokens
+                    else {
+                        printf("%s", boolean_str);
+                    }
+                    
+                    // Force print immediately
+                    fflush(stdout);
+                }
+            }
+        }
+        
+        tight_loop_contents();
     }
 }
