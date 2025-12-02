@@ -160,10 +160,10 @@ const char* get_boolean_token(char raw_key) {
         case '1': return "A";
         case '2': return "B";
         case '3': return "C";
-        case '8': return " & "; 
-        case '0': return " | "; 
+        case '8': return "&"; 
+        case '0': return "|"; 
         case '4': return "!";   
-        case '5': return " ^ "; 
+        case '5': return "^"; 
         case '6': return "(";   
         case 'B': return ")";   
         case '#': return "\n";  
