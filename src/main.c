@@ -7,11 +7,11 @@
 #include "hardware/adc.h"
 
 const bool USING_LCD = true; // Set to true if using LCD, false if using OLED, for check_wiring.
-const int SEG7_DMA_CHANNEL = 5;
+const int SEG7_DMA_CHANNEL = 5; 
 
 const int SPI_DISP_SCK = 34; // Replace with your SCK pin number for the LCD/OLED display
 const int SPI_DISP_CSn = 33; // Replace with your CSn pin number for the LCD/OLED display
-const int SPI_DISP_TX = 35;  // Replace with your TX pin number for the LCD/OLED display
+const int SPI_DISP_TX = 35; // Replace with your TX pin number for the LCD/OLED display
 
 #define LCD_COLS 16
 #define EXPR_MAX 63
@@ -31,13 +31,53 @@ static char lcd_line2[LCD_COLS + 1];
 static int lcd_row = 0; // 0 = first line, 1 = second line
 static int lcd_col = 0; // 0..15
 
+static bool syntax_error_shown = false;
+
 static void expr_clear(void)
 {
     expr_len = 0;
     expr_buf[0] = '\0';
 }
 
+static void lcd_clear_buffers(void);
+static void lcd_sync(void);
+static void lcd_put_char(char c);
+
 // ---------------- LCD helper functions ----------------
+static void reset_input_and_lcd(void)
+{
+    expr_clear();            // clears expr_buf and expr_len (you already use this)
+    have_table = false;
+    current_row = 0;
+
+    lcd_clear_buffers();
+    lcd_row = 0;
+    lcd_col = 0;
+    lcd_sync();
+}
+
+// Show error message and mark that we’re in “error mode”
+static void show_syntax_error(int err)
+{
+    have_table = false;
+    expr_clear();  // wipe any garbage expression
+
+    lcd_clear_buffers();
+    lcd_row = 0;
+    lcd_col = 0;
+
+    const char *msg = "SYNTAX ERROR";
+    for (int i = 0; msg[i] && i < LCD_COLS; ++i)
+    {
+        lcd_put_char(msg[i]);
+    }
+    lcd_sync();
+
+    printf("Error parsing expression (code %d)\n", err);
+
+    // Remember that the last thing we showed was an error
+    syntax_error_shown = true;
+}
 
 static void lcd_clear_buffers(void)
 {
@@ -249,7 +289,6 @@ static int knob_get_row_index(void)
 
     return row;
 }
-
 int main()
 {
     stdio_init_all();
@@ -295,6 +334,13 @@ int main()
 
                 if (boolean_str != NULL)
                 {
+                    // NEW: if we were showing a syntax error, clear LCD + expr
+                    if (syntax_error_shown)
+                    {
+                        reset_input_and_lcd();
+                        syntax_error_shown = false;
+                    }
+
                     // ---------- 1. SERIAL ECHO ----------
                     if (boolean_str[0] == '\b')
                     {
@@ -359,22 +405,8 @@ int main()
                         }
                         else
                         {
-                            // Parsing failed; no valid table
-                            have_table = false;
-
-                            // Show error on LCD
-                            lcd_clear_buffers();
-                            lcd_row = 0;
-                            lcd_col = 0;
-                            const char *msg = "SYNTAX ERROR";
-                            for (int i = 0; msg[i] && i < LCD_COLS; ++i)
-                            {
-                                lcd_put_char(msg[i]);
-                            }
-                            lcd_sync();
-
-                            // Print error code on serial
-                            printf("Error parsing expression (code %d)\n", err);
+                            // Use the dedicated handler
+                            show_syntax_error(err);
                         }
 
                         // Start new prompt on serial
